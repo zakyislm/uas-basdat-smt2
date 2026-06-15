@@ -1,118 +1,274 @@
 <?php
 require_once 'config.php';
 
-// Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
     $_SESSION['flash_message'] = 'Silakan masuk untuk bertransaksi.';
-    header("Location: login.php");
+    header("Location: auth.php");
     exit();
 }
 
-// Check if user is verified
 if ($_SESSION['is_verified'] != 1) {
     $_SESSION['flash_message'] = 'Maaf, akun Anda belum diverifikasi. Hanya pengguna yang sudah diverifikasi yang dapat melakukan transaksi.';
     header("Location: index.php");
     exit();
 }
 
-$motor_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$user_id = $_SESSION['user_id'];
+$error = '';
 
-// Fetch motorcycle details
-$stmt = $conn->prepare("SELECT * FROM motorcycles WHERE id = ? AND stock > 0");
-$stmt->bind_param("i", $motor_id);
+// Fetch all cart items
+$stmt = $conn->prepare("
+    SELECT c.id as cart_id, c.quantity, m.id as motor_id, m.make, m.model, m.price, m.stock 
+    FROM carts c
+    JOIN motorcycles m ON c.motorcycle_id = m.id
+    WHERE c.user_id = ?
+");
+$stmt->bind_param("i", $user_id);
 $stmt->execute();
-$result = $stmt->get_result();
+$cart_items = $stmt->get_result();
 
-if ($result->num_rows == 0) {
-    $_SESSION['flash_message'] = 'Maaf, motor ini tidak ditemukan atau stok sudah habis.';
-    header("Location: index.php");
+if ($cart_items->num_rows == 0) {
+    $_SESSION['flash_message'] = 'Keranjang Anda kosong. Silakan pilih motor terlebih dahulu.';
+    header("Location: discover.php");
     exit();
 }
 
-$motorcycle = $result->fetch_assoc();
-$error = '';
+$cart_data = [];
+$grand_total = 0;
+while($row = $cart_items->fetch_assoc()) {
+    $cart_data[] = $row;
+    $grand_total += $row['price'] * $row['quantity'];
+}
 
-// Handle transaction submission
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $user_id = $_SESSION['user_id'];
-    $quantity = intval($_POST['quantity']);
+// Handle Checkout Submission
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
     $type = $_POST['type']; // 'booking' or 'buy'
     
-    if ($quantity <= 0) {
-        $error = "Jumlah pesanan tidak valid.";
-    } elseif ($quantity > $motorcycle['stock']) {
-        $error = "Maaf, jumlah pesanan melebihi sisa stok yang tersedia (Sisa: " . $motorcycle['stock'] . ").";
-    } elseif ($type !== 'booking' && $type !== 'buy') {
+    if ($type !== 'booking' && $type !== 'buy') {
         $error = "Tipe transaksi tidak valid.";
     } else {
-        // Insert transaction
-        $t_stmt = $conn->prepare("INSERT INTO transactions (user_id, motorcycle_id, quantity, type) VALUES (?, ?, ?, ?)");
-        $t_stmt->bind_param("iiis", $user_id, $motor_id, $quantity, $type);
+        // Step 1: Verify all stocks first
+        $stock_ok = true;
+        foreach ($cart_data as $item) {
+            if ($item['quantity'] > $item['stock']) {
+                $stock_ok = false;
+                $error = "Stok untuk " . $item['make'] . " " . $item['model'] . " tidak mencukupi (Sisa: " . $item['stock'] . ").";
+                break;
+            }
+        }
         
-        if ($t_stmt->execute()) {
-            // Kurangi stok
-            $update_stmt = $conn->prepare("UPDATE motorcycles SET stock = stock - ? WHERE id = ?");
-            $update_stmt->bind_param("ii", $quantity, $motor_id);
-            $update_stmt->execute();
+        if ($stock_ok) {
+            // Step 2: Insert transactions and deduct stock
+            $t_stmt = $conn->prepare("INSERT INTO transactions (user_id, motorcycle_id, quantity, type) VALUES (?, ?, ?, ?)");
+            $u_stmt = $conn->prepare("UPDATE motorcycles SET stock = stock - ? WHERE id = ?");
+            $c_stmt = $conn->prepare("DELETE FROM carts WHERE id = ?");
             
-            $tipe_text = ($type === 'booking') ? "Booking" : "Pembelian";
-            log_action($conn, $user_id, "Membuat transaksi $type sebanyak $quantity unit untuk motor ID $motor_id");
-
-            $_SESSION['flash_message'] = "Transaksi $tipe_text berhasil untuk " . $quantity . " unit " . $motorcycle['make'] . " " . $motorcycle['model'] . "!";
-            header("Location: index.php");
+            $items_count = 0;
+            foreach ($cart_data as $item) {
+                // Insert transaction
+                $t_stmt->bind_param("iiis", $user_id, $item['motor_id'], $item['quantity'], $type);
+                $t_stmt->execute();
+                
+                // Deduct stock
+                $u_stmt->bind_param("ii", $item['quantity'], $item['motor_id']);
+                $u_stmt->execute();
+                
+                // Remove from cart
+                $c_stmt->bind_param("i", $item['cart_id']);
+                $c_stmt->execute();
+                
+                $items_count++;
+            }
+            
+            log_action($conn, $user_id, "Melakukan checkout keranjang ($type) untuk $items_count macam barang.");
+            $_SESSION['flash_message'] = "Checkout berhasil diproses! Barang Anda akan segera kami siapkan.";
+            header("Location: history.php");
             exit();
-        } else {
-            $error = "Terjadi kesalahan saat menyimpan transaksi.";
         }
     }
 }
 ?>
 
 <!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <title>Transaksi - Dealer Motor</title>
-</head>
-<body>
-    <header>
-        <h1>Dealer Motor</h1>
-        <nav><a href="index.php">Kembali ke Beranda</a></nav>
-    </header>
-    <hr>
+<html class="light" lang="en">
 
-    <main>
-        <h2>Transaksi Motor</h2>
-        
-        <?php if ($error): ?>
-            <p style="color: red;"><?= $error ?></p>
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>MotoTrack Pro | Secure Checkout</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <style>
+        body { font-family: 'Hanken Grotesk', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#bb0112",
+                        "background": "#f7f9fb",
+                        "surface-container-lowest": "#ffffff",
+                        "outline-variant": "#c6c6cd",
+                        "on-surface": "#191c1e",
+                        "on-surface-variant": "#45464d",
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+
+<body class="bg-background text-on-surface flex flex-col min-h-screen pb-16 md:pb-0">
+    <!-- TopNavBar -->
+    <header class="w-full top-0 sticky z-50 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
+        <div class="flex justify-between items-center px-4 md:px-8 py-2 w-full max-w-[1280px] mx-auto h-16">
+            <div class="flex items-center gap-4">
+                <a href="index.php" class="text-xl font-bold text-secondary">MotoTrack Pro</a>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <!-- Desktop Only Links -->
+                <nav class="hidden md:flex items-center gap-2 mr-2 border-r border-outline-variant pr-4">
+                    <a href="index.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Home">
+                        <span class="material-symbols-outlined text-[24px]">home</span>
+                    </a>
+                    <a href="discover.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Discover">
+                        <span class="material-symbols-outlined text-[24px]">travel_explore</span>
+                    </a>
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <a href="history.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="History">
+                            <span class="material-symbols-outlined text-[24px]">receipt_long</span>
+                        </a>
+                        <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'owner'): ?>
+                            <a href="admin.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Admin Panel">
+                                <span class="material-symbols-outlined text-[24px]">admin_panel_settings</span>
+                            </a>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </nav>
+
+                <!-- Always visible Cart & Settings -->
+                <?php if (isset($_SESSION['user_id'])): ?>
+                    <?php include 'notifications_ui.php'; ?>
+                    <a href="cart.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50 relative" title="Cart">
+                        <span class="material-symbols-outlined text-[24px]">shopping_cart</span>
+                        <?php if (isset($cart_count) && $cart_count > 0): ?>
+                            <span class="absolute top-0 right-0 bg-secondary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center border-2 border-white"><?= $cart_count ?></span>
+                        <?php endif; ?>
+                    </a>
+                    <a href="settings.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Settings">
+                        <span class="material-symbols-outlined text-[24px]">settings</span>
+                    </a>
+                <?php else: ?>
+                    <a href="auth.php" class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-sm hover:bg-secondary transition-colors">Login</a>
+                <?php endif; ?>
+            </div>
+        </div>
+    </header>
+
+    <main class="w-full flex-grow max-w-[1280px] mx-auto px-8 py-12">
+        <div class="mb-10 text-center max-w-2xl mx-auto">
+            <h1 class="text-4xl font-extrabold text-slate-900">Secure Checkout</h1>
+            <p class="text-slate-500 mt-2">Selesaikan pesanan Anda untuk segera memiliki motor impian.</p>
+        </div>
+
+        <?php if (!empty($error)): ?>
+            <div class="max-w-4xl mx-auto mb-6 bg-red-50 text-red-800 border border-red-200 px-6 py-4 rounded-xl font-bold text-sm flex items-center gap-3">
+                <span class="material-symbols-outlined text-red-600">error</span>
+                <?= htmlspecialchars($error) ?>
+            </div>
         <?php endif; ?>
 
-        <p>Detail Kendaraan:</p>
-        <ul>
-            <li><strong>Merk:</strong> <?= htmlspecialchars($motorcycle['make']) ?></li>
-            <li><strong>Model:</strong> <?= htmlspecialchars($motorcycle['model']) ?></li>
-            <li><strong>Harga Satuan:</strong> Rp <?= number_format($motorcycle['price'], 0, ',', '.') ?></li>
-            <li><strong>Sisa Stok:</strong> <?= $motorcycle['stock'] ?> unit</li>
-        </ul>
+        <div class="max-w-4xl mx-auto flex flex-col md:flex-row gap-8">
+            <!-- Order Review -->
+            <div class="w-full md:w-2/3 space-y-6">
+                <div class="bg-white border border-slate-200 rounded-xl p-6">
+                    <h3 class="text-xl font-bold text-slate-900 mb-6 border-b border-slate-100 pb-4">Order Items (<?= count($cart_data) ?>)</h3>
+                    
+                    <div class="space-y-4">
+                        <?php foreach($cart_data as $item): ?>
+                        <div class="flex items-center justify-between border-b border-slate-50 pb-4 last:border-0 last:pb-0">
+                            <div class="flex items-center gap-4">
+                                <div class="w-16 h-16 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-400 uppercase">
+                                    <?= substr(htmlspecialchars($item['make']), 0, 3) ?>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-900"><?= htmlspecialchars($item['make'] . ' ' . $item['model']) ?></h4>
+                                    <p class="text-xs text-slate-500"><?= $item['quantity'] ?> Units x Rp <?= number_format($item['price'], 0, ',', '.') ?></p>
+                                </div>
+                            </div>
+                            <span class="font-bold text-secondary">Rp <?= number_format($item['price'] * $item['quantity'], 0, ',', '.') ?></span>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
 
-        <form method="POST" action="checkout.php?id=<?= $motor_id ?>">
-            <div>
-                <label for="quantity">Jumlah Pesanan:</label><br>
-                <input type="number" id="quantity" name="quantity" min="1" max="<?= $motorcycle['stock'] ?>" value="1" required>
+            <!-- Checkout Form -->
+            <div class="w-full md:w-1/3">
+                <div class="bg-white border border-slate-200 rounded-xl p-6 sticky top-24">
+                    <h3 class="text-xl font-bold text-slate-900 mb-6 border-b border-slate-100 pb-4">Payment Method</h3>
+                    
+                    <form method="POST" action="checkout.php" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Tipe Transaksi</label>
+                            <div class="space-y-3">
+                                <label class="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                                    <input type="radio" name="type" value="booking" required class="mt-1 text-secondary focus:ring-secondary">
+                                    <div>
+                                        <span class="block font-bold text-slate-900">Booking / DP</span>
+                                        <span class="block text-xs text-slate-500">Amankan stok dengan uang muka, pelunasan di dealer.</span>
+                                    </div>
+                                </label>
+                                <label class="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                                    <input type="radio" name="type" value="buy" required class="mt-1 text-secondary focus:ring-secondary">
+                                    <div>
+                                        <span class="block font-bold text-slate-900">Beli Langsung (Cash)</span>
+                                        <span class="block text-xs text-slate-500">Bayar lunas melalui transfer / Virtual Account.</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 border-t border-slate-100 space-y-3">
+                            <div class="flex justify-between text-slate-600">
+                                <span>Total Amount</span>
+                                <span class="font-extrabold text-slate-900 text-xl">Rp <?= number_format($grand_total, 0, ',', '.') ?></span>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" name="checkout" class="w-full flex items-center justify-center gap-2 bg-secondary text-white py-3.5 rounded-lg font-bold text-lg hover:bg-red-800 transition-all shadow-lg shadow-red-200">
+                            Confirm Order
+                            <span class="material-symbols-outlined text-[20px]">check_circle</span>
+                        </button>
+                    </form>
+                </div>
             </div>
-            <br>
-            <div>
-                <label for="type">Tipe Transaksi:</label><br>
-                <select id="type" name="type" required>
-                    <option value="buy">Beli Langsung</option>
-                    <option value="booking">Booking / Reservasi</option>
-                </select>
-            </div>
-            <br>
-            <button type="submit">Konfirmasi Transaksi</button>
-            <a href="index.php"><button type="button">Batal</button></a>
-        </form>
+        </div>
     </main>
+
+    <?php include 'footer.php'; ?>
+
+    <!-- Bottom Nav (Mobile) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 w-full bg-white border-t border-slate-200 z-[999]" style="padding-bottom: env(safe-area-inset-bottom);">
+        <div class="flex justify-around items-center h-16">
+            <a href="index.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+                <span class="material-symbols-outlined text-[24px]">home</span>
+                <span class="text-[10px] font-bold mt-1">Home</span>
+            </a>
+            <a href="discover.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+                <span class="material-symbols-outlined text-[24px]">travel_explore</span>
+                <span class="text-[10px] font-bold mt-1">Discover</span>
+            </a>
+            <a href="history.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+                <span class="material-symbols-outlined text-[24px]">receipt_long</span>
+                <span class="text-[10px] font-bold mt-1">History</span>
+            </a>
+        </div>
+    </nav>
 </body>
 </html>
