@@ -10,6 +10,6 @@ session_destroy();
 
 session_start();
 $_SESSION['flash_message'] = "Anda telah berhasil keluar.";
-header("Location: index.php");
+header("Location: index");
 exit();
 ?>

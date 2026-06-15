@@ -3,20 +3,19 @@ require_once 'config.php';
 
 if (!isset($_SESSION['user_id'])) {
     $_SESSION['flash_message'] = 'Silakan masuk untuk bertransaksi.';
-    header("Location: auth.php");
+    header("Location: auth");
     exit();
 }
 
 if ($_SESSION['is_verified'] != 1) {
     $_SESSION['flash_message'] = 'Maaf, akun Anda belum diverifikasi. Hanya pengguna yang sudah diverifikasi yang dapat melakukan transaksi.';
-    header("Location: index.php");
+    header("Location: index");
     exit();
 }
 
 $user_id = $_SESSION['user_id'];
 $error = '';
 
-// Fetch all cart items
 $stmt = $conn->prepare("
     SELECT c.id as cart_id, c.quantity, m.id as motor_id, m.make, m.model, m.price, m.stock 
     FROM carts c
@@ -29,7 +28,7 @@ $cart_items = $stmt->get_result();
 
 if ($cart_items->num_rows == 0) {
     $_SESSION['flash_message'] = 'Keranjang Anda kosong. Silakan pilih motor terlebih dahulu.';
-    header("Location: discover.php");
+    header("Location: discover");
     exit();
 }
 
@@ -40,14 +39,13 @@ while($row = $cart_items->fetch_assoc()) {
     $grand_total += $row['price'] * $row['quantity'];
 }
 
-// Handle Checkout Submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
-    $type = $_POST['type']; // 'booking' or 'buy'
+    $type = $_POST['type']; 
     
     if ($type !== 'booking' && $type !== 'buy') {
         $error = "Tipe transaksi tidak valid.";
     } else {
-        // Step 1: Verify all stocks first
+        
         $stock_ok = true;
         foreach ($cart_data as $item) {
             if ($item['quantity'] > $item['stock']) {
@@ -58,22 +56,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
         }
         
         if ($stock_ok) {
-            // Step 2: Insert transactions and deduct stock
+            
             $t_stmt = $conn->prepare("INSERT INTO transactions (user_id, motorcycle_id, quantity, type) VALUES (?, ?, ?, ?)");
             $u_stmt = $conn->prepare("UPDATE motorcycles SET stock = stock - ? WHERE id = ?");
             $c_stmt = $conn->prepare("DELETE FROM carts WHERE id = ?");
             
             $items_count = 0;
             foreach ($cart_data as $item) {
-                // Insert transaction
+                
                 $t_stmt->bind_param("iiis", $user_id, $item['motor_id'], $item['quantity'], $type);
                 $t_stmt->execute();
-                
-                // Deduct stock
+                $trx_id = $conn->insert_id;
+
+                $conn->query("INSERT INTO notifications (user_id, message, link, icon, color, bg) VALUES ($user_id, 'Menunggu pembayaran: #TX-$trx_id', 'payment.php?id=$trx_id', 'warning', 'text-orange-500', 'bg-orange-100')");
+
+                $conn->query("INSERT INTO notifications (target_role, message, link, icon, color, bg) VALUES ('admin', 'Pesanan baru: #TX-$trx_id', 'admin.php?page=transactions', 'receipt_long', 'text-blue-500', 'bg-blue-100')");
+
                 $u_stmt->bind_param("ii", $item['quantity'], $item['motor_id']);
                 $u_stmt->execute();
-                
-                // Remove from cart
+
                 $c_stmt->bind_param("i", $item['cart_id']);
                 $c_stmt->execute();
                 
@@ -82,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
             
             log_action($conn, $user_id, "Melakukan checkout keranjang ($type) untuk $items_count macam barang.");
             $_SESSION['flash_message'] = "Checkout berhasil diproses! Barang Anda akan segera kami siapkan.";
-            header("Location: history.php");
+            header("Location: history");
             exit();
         }
     }
@@ -123,52 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
 </head>
 
 <body class="bg-background text-on-surface flex flex-col min-h-screen pb-16 md:pb-0">
-    <!-- TopNavBar -->
-    <header class="w-full top-0 sticky z-50 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
-        <div class="flex justify-between items-center px-4 md:px-8 py-2 w-full max-w-[1280px] mx-auto h-16">
-            <div class="flex items-center gap-4">
-                <a href="index.php" class="text-xl font-bold text-secondary">MotoTrack Pro</a>
-            </div>
-            
-            <div class="flex items-center gap-2">
-                <!-- Desktop Only Links -->
-                <nav class="hidden md:flex items-center gap-2 mr-2 border-r border-outline-variant pr-4">
-                    <a href="index.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Home">
-                        <span class="material-symbols-outlined text-[24px]">home</span>
-                    </a>
-                    <a href="discover.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Discover">
-                        <span class="material-symbols-outlined text-[24px]">travel_explore</span>
-                    </a>
-                    <?php if (isset($_SESSION['user_id'])): ?>
-                        <a href="history.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="History">
-                            <span class="material-symbols-outlined text-[24px]">receipt_long</span>
-                        </a>
-                        <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'owner'): ?>
-                            <a href="admin.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Admin Panel">
-                                <span class="material-symbols-outlined text-[24px]">admin_panel_settings</span>
-                            </a>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                </nav>
-
-                <!-- Always visible Cart & Settings -->
-                <?php if (isset($_SESSION['user_id'])): ?>
-                    <?php include 'notifications_ui.php'; ?>
-                    <a href="cart.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50 relative" title="Cart">
-                        <span class="material-symbols-outlined text-[24px]">shopping_cart</span>
-                        <?php if (isset($cart_count) && $cart_count > 0): ?>
-                            <span class="absolute top-0 right-0 bg-secondary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center border-2 border-white"><?= $cart_count ?></span>
-                        <?php endif; ?>
-                    </a>
-                    <a href="settings.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Settings">
-                        <span class="material-symbols-outlined text-[24px]">settings</span>
-                    </a>
-                <?php else: ?>
-                    <a href="auth.php" class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-sm hover:bg-secondary transition-colors">Login</a>
-                <?php endif; ?>
-            </div>
-        </div>
-    </header>
+    <?php include 'header.php'; ?>
 
     <main class="w-full flex-grow max-w-[1280px] mx-auto px-8 py-12">
         <div class="mb-10 text-center max-w-2xl mx-auto">
@@ -184,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
         <?php endif; ?>
 
         <div class="max-w-4xl mx-auto flex flex-col md:flex-row gap-8">
-            <!-- Order Review -->
+            
             <div class="w-full md:w-2/3 space-y-6">
                 <div class="bg-white border border-slate-200 rounded-xl p-6">
                     <h3 class="text-xl font-bold text-slate-900 mb-6 border-b border-slate-100 pb-4">Order Items (<?= count($cart_data) ?>)</h3>
@@ -208,12 +164,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
                 </div>
             </div>
 
-            <!-- Checkout Form -->
             <div class="w-full md:w-1/3">
                 <div class="bg-white border border-slate-200 rounded-xl p-6 sticky top-24">
                     <h3 class="text-xl font-bold text-slate-900 mb-6 border-b border-slate-100 pb-4">Payment Method</h3>
                     
-                    <form method="POST" action="checkout.php" class="space-y-6">
+                    <form method="POST" action="checkout" class="space-y-6">
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-2">Tipe Transaksi</label>
                             <div class="space-y-3">
@@ -253,18 +208,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
 
     <?php include 'footer.php'; ?>
 
-    <!-- Bottom Nav (Mobile) -->
     <nav class="md:hidden fixed bottom-0 left-0 right-0 w-full bg-white border-t border-slate-200 z-[999]" style="padding-bottom: env(safe-area-inset-bottom);">
         <div class="flex justify-around items-center h-16">
-            <a href="index.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="/" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">home</span>
                 <span class="text-[10px] font-bold mt-1">Home</span>
             </a>
-            <a href="discover.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="discover" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">travel_explore</span>
                 <span class="text-[10px] font-bold mt-1">Discover</span>
             </a>
-            <a href="history.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="history" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">receipt_long</span>
                 <span class="text-[10px] font-bold mt-1">History</span>
             </a>

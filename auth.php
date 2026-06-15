@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 
                 log_action($conn, $user['id'], "Berhasil login ke dalam sistem");
                 
-                header("Location: index.php");
+                header("Location: index");
                 exit();
             } else {
                 $error = 'Kata sandi salah. Silakan periksa kembali.';
@@ -52,6 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if ($insert_stmt->execute()) {
                 $new_user_id = $conn->insert_id;
                 log_action($conn, $new_user_id, "Mendaftar akun baru dengan email $email");
+
+                $conn->query("INSERT INTO notifications (user_id, message, link, icon, color, bg) VALUES ($new_user_id, 'Selamat datang di MotoTrack Pro! Temukan motor impian Anda.', 'discover.php', 'campaign', 'text-secondary', 'bg-red-100')");
+
+                $u_name = $conn->real_escape_string($username);
+                $conn->query("INSERT INTO notifications (target_role, message, link, icon, color, bg) VALUES ('admin', 'Unverified user: $u_name', 'admin.php?page=users', 'person_add', 'text-blue-500', 'bg-blue-100')");
                 
                 $success = 'Pendaftaran berhasil! Silakan masuk.';
             } else {
@@ -69,13 +74,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>MotoTrack Pro | Authentication</title>
-    <!-- Google Fonts -->
+    
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
-    <!-- Material Symbols -->
+    
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <!-- Tailwind CSS -->
+    
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script id="tailwind-config">
         tailwind.config = {
@@ -147,16 +152,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </head>
 
 <body class="min-h-screen flex flex-col">
-    <!-- TopNavBar -->
+    
     <header class="w-full top-0 sticky z-50 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
         <div class="flex justify-between items-center px-4 md:px-8 py-2 w-full max-w-[1280px] mx-auto h-16">
             <div class="flex items-center gap-4">
-                <a href="index.php" class="text-xl font-bold text-secondary">MotoTrack Pro</a>
+                <a href="/" class="text-xl font-bold text-secondary">MotoTrack Pro</a>
             </div>
             
             <div class="flex items-center gap-2">
                 <nav class="hidden md:flex items-center gap-2">
-                    <a href="index.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Home">
+                    <a href="/" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Home">
                         <span class="material-symbols-outlined text-[24px]">home</span>
                     </a>
                 </nav>
@@ -166,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     <main class="flex-grow flex items-center justify-center py-stack-lg px-margin-mobile">
         <div class="w-full max-w-[480px]">
-            <!-- PHP Alert Spaces -->
+            
             <div class="mb-stack-md space-y-stack-sm" id="alert-container">
                 <?php if ($error): ?>
                 <div class="bg-error-container text-on-error-container p-stack-md rounded-lg flex items-center gap-stack-sm border border-error/20">
@@ -181,18 +186,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <p class="font-body-sm text-body-sm"><?= htmlspecialchars($success) ?></p>
                 </div>
                 <?php endif; ?>
-                
-                <?php if (isset($_SESSION['flash_message'])): ?>
-                <div class="bg-emerald-50 text-emerald-900 p-stack-md rounded-lg flex items-center gap-stack-sm border border-emerald-200">
-                    <span class="material-symbols-outlined">info</span>
-                    <p class="font-body-sm text-body-sm"><?= htmlspecialchars($_SESSION['flash_message']) ?></p>
-                </div>
-                <?php unset($_SESSION['flash_message']); endif; ?>
+
             </div>
 
-            <!-- Auth Container -->
             <div class="bg-white rounded-xl auth-card overflow-hidden">
-                <!-- Tab Headers -->
+                
                 <div class="flex border-b border-outline-variant">
                     <button class="flex-1 py-stack-md font-label-md text-label-md transition-all duration-200 tab-active" id="login-tab" onclick="switchAuth('login')">
                         LOGIN
@@ -202,8 +200,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     </button>
                 </div>
                 <div class="p-stack-lg">
-                    <!-- Login Form -->
-                    <form method="POST" action="auth.php" class="space-y-stack-md" id="login-form">
+                    
+                    <form method="POST" action="auth" class="space-y-stack-md" id="login-form">
                         <input type="hidden" name="action" value="login">
                         <div class="space-y-base">
                             <label class="font-label-sm text-label-sm text-on-surface-variant block" for="login-email">EMAIL ADDRESS</label>
@@ -223,8 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         </div>
                     </form>
 
-                    <!-- Register Form (Hidden by default) -->
-                    <form method="POST" action="auth.php" class="hidden space-y-stack-md" id="register-form">
+                    <form method="POST" action="auth" class="hidden space-y-stack-md" id="register-form">
                         <input type="hidden" name="action" value="register">
                         <div class="space-y-base">
                             <label class="font-label-sm text-label-sm text-on-surface-variant block" for="reg-name">FULL NAME</label>
@@ -254,26 +251,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
             
             <p class="mt-stack-lg text-center font-body-sm text-body-sm text-on-surface-variant">
-                Precision engineering for the modern dealership.<br />
-                <span class="opacity-60">System Version 4.2.0-PRO</span>
+                
+                <span class="opacity-60"></span>
             </p>
         </div>
     </main>
 
     <?php include 'footer.php'; ?>
 
-    <!-- Bottom Nav (Mobile) -->
     <nav class="md:hidden fixed bottom-0 left-0 right-0 w-full bg-white border-t border-slate-200 z-[999]" style="padding-bottom: env(safe-area-inset-bottom);">
         <div class="flex justify-around items-center h-16">
-            <a href="index.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="/" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">home</span>
                 <span class="text-[10px] font-bold mt-1">Home</span>
             </a>
-            <a href="discover.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="discover" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">travel_explore</span>
                 <span class="text-[10px] font-bold mt-1">Discover</span>
             </a>
-            <a href="history.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="history" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">receipt_long</span>
                 <span class="text-[10px] font-bold mt-1">History</span>
             </a>
@@ -303,7 +299,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 loginTab.classList.add('text-on-surface-variant');
             }
         }
+     
+    <?php if (isset($_SESSION['flash_message'])): ?>
+    <div id="flash-popup" class="fixed top-24 right-4 md:right-8 bg-slate-900 text-white px-6 py-4 rounded-xl shadow-2xl z-[100] flex items-center gap-4 transition-all duration-300 transform translate-y-0 opacity-100">
+        <span class="material-symbols-outlined text-secondary">info</span>
+        <span class="font-medium text-sm"><?= htmlspecialchars($_SESSION['flash_message']) ?></span>
+        <button onclick="document.getElementById('flash-popup').style.opacity='0'; setTimeout(()=>document.getElementById('flash-popup').remove(), 300)" class="text-slate-400 hover:text-white ml-2">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+    </div>
+    <script>
+        setTimeout(() => {
+            const popup = document.getElementById('flash-popup');
+            if(popup) {
+                popup.style.opacity = '0';
+                setTimeout(() => popup.remove(), 300);
+            }
+        }, 3000);
     </script>
+    <?php unset($_SESSION['flash_message']); endif; ?>
+    <?php include_once 'skeleton.php'; ?>
 </body>
-
 </html>

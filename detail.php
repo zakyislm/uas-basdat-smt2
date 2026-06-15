@@ -1,11 +1,10 @@
 <?php
 require_once 'config.php';
 
-// Handle Add to Cart
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_to_cart'])) {
     if (!isset($_SESSION['user_id'])) {
         $_SESSION['flash_message'] = "Silakan login terlebih dahulu untuk menambah barang ke keranjang.";
-        header("Location: auth.php");
+        header("Location: auth");
         exit();
     }
     
@@ -45,11 +44,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_to_cart'])) {
     exit();
 }
 
-// Handle Buy Now
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['buy_now'])) {
     if (!isset($_SESSION['user_id'])) {
         $_SESSION['flash_message'] = "Silakan login terlebih dahulu untuk membeli barang.";
-        header("Location: auth.php");
+        header("Location: auth");
         exit();
     }
     
@@ -72,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['buy_now'])) {
             $insert->execute();
         }
         
-        header("Location: checkout.php");
+        header("Location: checkout");
         exit();
     } else {
         $_SESSION['flash_message'] = "Maaf, stok barang sedang habis.";
@@ -90,16 +88,14 @@ $stmt->execute();
 $motor = $stmt->get_result()->fetch_assoc();
 
 if (!$motor) {
-    header("Location: index.php");
+    header("Location: index");
     exit();
 }
 
-// Generate image placeholder logic (same as index.php)
 $imgHash = md5($motor['make'] . $motor['model']);
 $unsplashKeyword = urlencode(strtolower($motor['make'] . ' motorcycle'));
 $imgUrl = "https://source.unsplash.com/800x600/?{$unsplashKeyword}&sig={$imgHash}";
 
-// Since source.unsplash is deprecated, use images.unsplash directly or placeholders
 $placeholders = [
     'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=800',
     'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=800',
@@ -148,59 +144,7 @@ $imgUrl = $placeholders[$motor['id'] % count($placeholders)];
 </head>
 
 <body class="bg-background text-on-surface flex flex-col min-h-screen pb-16 md:pb-0">
-    <!-- TopNavBar -->
-    <header class="w-full top-0 sticky z-50 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
-        <div class="flex justify-between items-center px-4 md:px-8 py-2 w-full max-w-[1280px] mx-auto h-16">
-            <div class="flex items-center gap-4">
-                <a href="index.php" class="text-xl font-bold text-secondary">MotoTrack Pro</a>
-            </div>
-            
-            <div class="flex items-center gap-2">
-                <!-- Desktop Only Links -->
-                <nav class="hidden md:flex items-center gap-2 mr-2 border-r border-outline-variant pr-4">
-                    <a href="index.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Home">
-                        <span class="material-symbols-outlined text-[24px]">home</span>
-                    </a>
-                    <a href="discover.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Discover">
-                        <span class="material-symbols-outlined text-[24px]">travel_explore</span>
-                    </a>
-                    <?php if (isset($_SESSION['user_id'])): ?>
-                        <a href="history.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="History">
-                            <span class="material-symbols-outlined text-[24px]">receipt_long</span>
-                        </a>
-                        <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'owner'): ?>
-                            <a href="admin.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Admin Panel">
-                                <span class="material-symbols-outlined text-[24px]">admin_panel_settings</span>
-                            </a>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                </nav>
-
-                <!-- Always visible Cart & Settings -->
-                <?php if (isset($_SESSION['user_id'])): ?>
-                    <?php include 'notifications_ui.php'; ?>
-                    <a href="cart.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50 relative" title="Cart">
-                        <span class="material-symbols-outlined text-[24px]">shopping_cart</span>
-                        <?php if (isset($cart_count) && $cart_count > 0): ?>
-                            <span class="absolute top-0 right-0 bg-secondary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center border-2 border-white"><?= $cart_count ?></span>
-                        <?php endif; ?>
-                    </a>
-                    <a href="settings.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Settings">
-                        <span class="material-symbols-outlined text-[24px]">settings</span>
-                    </a>
-                <?php else: ?>
-                    <a href="auth.php" class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-sm hover:bg-secondary transition-colors">Login</a>
-                <?php endif; ?>
-            </div>
-        </div>
-    </header>
-
-    <?php if (isset($_SESSION['flash_message'])): ?>
-        <div class="bg-slate-800 text-white px-4 py-3 text-center font-bold text-sm">
-            <?= htmlspecialchars($_SESSION['flash_message']) ?>
-            <?php unset($_SESSION['flash_message']); ?>
-        </div>
-    <?php endif; ?>
+    <?php include 'header.php'; ?>
 
     <main class="flex-grow w-full max-w-[1280px] mx-auto px-4 md:px-8 py-8 md:py-12">
         <a href="javascript:history.back()" class="inline-flex items-center gap-2 text-slate-500 hover:text-secondary font-bold mb-6 transition-colors">
@@ -210,7 +154,7 @@ $imgUrl = $placeholders[$motor['id'] % count($placeholders)];
 
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
-                <!-- Image Section -->
+                
                 <div class="relative h-[300px] md:h-full min-h-[400px] bg-slate-100 group overflow-hidden">
                     <img src="<?= $imgUrl ?>" alt="<?= htmlspecialchars($motor['model']) ?>" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
                     <div class="absolute top-4 left-4 flex gap-2">
@@ -225,7 +169,6 @@ $imgUrl = $placeholders[$motor['id'] % count($placeholders)];
                     </div>
                 </div>
 
-                <!-- Details Section -->
                 <div class="p-6 md:p-10 flex flex-col h-full">
                     <div class="mb-2">
                         <h1 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight mb-2">
@@ -242,7 +185,6 @@ $imgUrl = $placeholders[$motor['id'] % count($placeholders)];
                         </span>
                     </div>
 
-                    <!-- Specs Grid -->
                     <div class="grid grid-cols-2 gap-4 mb-8">
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <div class="flex items-center gap-2 text-slate-500 mb-1">
@@ -270,7 +212,6 @@ $imgUrl = $placeholders[$motor['id'] % count($placeholders)];
                         </div>
                     </div>
 
-                    <!-- Description -->
                     <div class="mb-8 flex-grow">
                         <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
                             Description
@@ -280,10 +221,9 @@ $imgUrl = $placeholders[$motor['id'] % count($placeholders)];
                         </p>
                     </div>
 
-                    <!-- Actions -->
                     <div class="mt-auto pt-6 border-t border-slate-100">
                         <?php if ($motor['stock'] > 0): ?>
-                            <form method="POST" action="detail.php?id=<?= $motor['id'] ?>">
+                            <form method="POST" action="detail?id=<?= $motor['id'] ?>">
                                 <input type="hidden" name="motorcycle_id" value="<?= $motor['id'] ?>">
                                 <div class="flex flex-row gap-3 w-full">
                                     <button type="submit" name="buy_now" class="flex-1 flex items-center justify-center gap-2 bg-secondary text-white py-4 rounded-xl font-bold hover:bg-secondary-container hover:shadow-lg hover:shadow-secondary/30 transition-all text-lg">
@@ -308,18 +248,17 @@ $imgUrl = $placeholders[$motor['id'] % count($placeholders)];
 
     <?php include 'footer.php'; ?>
 
-    <!-- Bottom Nav (Mobile) -->
     <nav class="md:hidden fixed bottom-0 left-0 right-0 w-full bg-white border-t border-slate-200 z-[999]" style="padding-bottom: env(safe-area-inset-bottom);">
         <div class="flex justify-around items-center h-16">
-            <a href="index.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="/" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">home</span>
                 <span class="text-[10px] font-bold mt-1">Home</span>
             </a>
-            <a href="discover.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="discover" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">travel_explore</span>
                 <span class="text-[10px] font-bold mt-1">Discover</span>
             </a>
-            <a href="history.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="history" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">receipt_long</span>
                 <span class="text-[10px] font-bold mt-1">History</span>
             </a>

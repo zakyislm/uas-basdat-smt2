@@ -1,12 +1,13 @@
+<?php require_once 'config.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terms of Service - MotoTrack Pro</title>
-    <!-- Google Fonts -->
+    
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <!-- Tailwind CSS -->
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -23,16 +24,16 @@
         }
     </script>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
-    <!-- Header -->
+<body class="bg-background text-slate-800 flex flex-col min-h-screen pb-16 md:pb-0">
+    <?php include \'header.php\'; ?>
+    
     <header class="bg-white border-b border-slate-200 py-4 px-8 sticky top-0 z-50">
         <div class="max-w-[1280px] mx-auto flex items-center justify-between">
-            <a href="index.php" class="font-bold text-secondary text-2xl">MotoTrack Pro</a>
-            <a href="index.php" class="text-sm font-medium text-slate-500 hover:text-secondary">Back to Home</a>
+            <a href="/" class="font-bold text-secondary text-2xl">MotoTrack Pro</a>
+            <a href="/" class="text-sm font-medium text-slate-500 hover:text-secondary">Back to Home</a>
         </div>
     </header>
 
-    <!-- Content -->
     <main class="flex-grow max-w-[800px] mx-auto w-full px-8 py-12">
         <h1 class="text-4xl font-bold mb-8 text-slate-900">Terms of Service</h1>
         
@@ -64,11 +65,27 @@
         </div>
     </main>
 
-    <!-- Footer -->
     <footer class="bg-white border-t border-slate-200 py-8 mt-auto">
         <div class="max-w-[1280px] mx-auto px-8 text-center text-sm text-slate-500">
             &copy; 2024 MotoTrack Pro. All rights reserved.
         </div>
     </footer>
+    
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 w-full bg-white border-t border-slate-200 z-[999]" style="padding-bottom: env(safe-area-inset-bottom);">
+        <div class="flex justify-around items-center h-16">
+            <a href="/" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+                <span class="material-symbols-outlined text-[24px]">home</span>
+                <span class="text-[10px] font-bold mt-1">Home</span>
+            </a>
+            <a href="discover" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+                <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">travel_explore</span>
+                <span class="text-[10px] font-bold mt-1">Discover</span>
+            </a>
+            <a href="history" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+                <span class="material-symbols-outlined text-[24px]">receipt_long</span>
+                <span class="text-[10px] font-bold mt-1">History</span>
+            </a>
+        </div>
+    </nav>
 </body>
 </html>

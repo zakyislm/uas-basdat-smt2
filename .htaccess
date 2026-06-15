@@ -1,0 +1,9 @@
+RewriteEngine On
+# Jika file/folder asli ada, abaikan rules
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+# Sembunyikan ekstensi .php
+RewriteRule ^([^\.]+)$ $1.php [NC,L]
+
+# ErrorDocument untuk 404
+ErrorDocument 404 /404.php

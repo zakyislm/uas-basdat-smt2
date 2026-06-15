@@ -15,10 +15,8 @@ if (file_exists($envFile)) {
     $dbname = 'dealer_db';
 }
 
-// Create connection
 $conn = new mysqli($host, $user, $password, $dbname);
 
-// Check connection
 if ($conn->connect_error) {
     die("Koneksi Database Gagal: " . $conn->connect_error);
 }
@@ -29,63 +27,55 @@ function log_action($conn, $user_id, $action_detail) {
     $stmt->execute();
 }
 
-// --- NOTIFICATIONS LOGIC ---
 $notifications = [];
+$unread_notif_count = 0;
 if (isset($_SESSION['user_id'])) {
-    if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'owner') {
-        // Admin/Owner: Pending transactions
-        $n_stmt = $conn->query("SELECT id FROM transactions WHERE payment_status = 'pending_verification'");
-        if ($n_stmt) {
-            while ($n = $n_stmt->fetch_assoc()) {
-                $notifications[] = [
-                    'icon' => 'payments',
-                    'message' => "Pending verification: #TX-" . $n['id'],
-                    'link' => 'admin.php?page=transactions',
-                    'color' => 'text-amber-500',
-                    'bg' => 'bg-amber-100'
-                ];
-            }
-        }
-        // Admin/Owner: Unverified users
-        $u_stmt = $conn->query("SELECT id, username FROM users WHERE is_verified = 0");
-        if ($u_stmt) {
-            while ($u = $u_stmt->fetch_assoc()) {
-                $notifications[] = [
-                    'icon' => 'person_add',
-                    'message' => "Unverified user: " . htmlspecialchars($u['username']),
-                    'link' => 'admin.php?page=users',
-                    'color' => 'text-blue-500',
-                    'bg' => 'bg-blue-100'
-                ];
-            }
-        }
-    } else {
-        // User: General notification
-        $notifications[] = [
-            'icon' => 'campaign',
-            'message' => "Selamat datang di MotoTrack Pro! Temukan motor impian Anda.",
-            'link' => 'discover.php',
-            'color' => 'text-secondary',
-            'bg' => 'bg-red-100'
-        ];
-        
-        // User: Unpaid orders
-        $p_stmt = $conn->prepare("SELECT id FROM transactions WHERE user_id = ? AND payment_status = 'unpaid' AND status != 'cancelled'");
-        $p_stmt->bind_param("i", $_SESSION['user_id']);
-        $p_stmt->execute();
-        $p_res = $p_stmt->get_result();
-        while ($p = $p_res->fetch_assoc()) {
-            $notifications[] = [
-                'icon' => 'warning',
-                'message' => "Menunggu pembayaran: #TX-" . $p['id'],
-                'link' => 'payment.php?id=' . $p['id'],
-                'color' => 'text-orange-500',
-                'bg' => 'bg-orange-100'
-            ];
+    $uid = $_SESSION['user_id'];
+    $role = $_SESSION['role'];
+
+    $n_sql = "SELECT * FROM notifications WHERE user_id = ? OR target_role = ? ORDER BY created_at DESC";
+    $n_stmt = $conn->prepare($n_sql);
+    $n_stmt->bind_param("is", $uid, $role);
+    $n_stmt->execute();
+    $n_res = $n_stmt->get_result();
+    
+    while ($row = $n_res->fetch_assoc()) {
+        $notifications[] = $row;
+        if (!$row['is_read']) {
+            $unread_notif_count++;
         }
     }
 }
-$notif_count = count($notifications);
+$notif_count = $unread_notif_count;
+
+function time_elapsed_string($datetime, $full = false) {
+    $now = new DateTime;
+    $ago = new DateTime($datetime);
+    $diff = $now->diff($ago);
+
+    $diff->w = floor($diff->d / 7);
+    $diff->d -= $diff->w * 7;
+
+    $string = array(
+        'y' => 'y',
+        'm' => 'm',
+        'w' => 'w',
+        'd' => 'd',
+        'h' => 'h',
+        'i' => 'm',
+        's' => 's',
+    );
+    foreach ($string as $k => &$v) {
+        if ($diff->$k) {
+            $v = $diff->$k . $v;
+        } else {
+            unset($string[$k]);
+        }
+    }
+
+    if (!$full) $string = array_slice($string, 0, 1);
+    return $string ? implode(', ', $string) . ' ago' : 'just now';
+}
 
 $cart_count = 0;
 if (isset($_SESSION['user_id'])) {

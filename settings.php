@@ -2,7 +2,7 @@
 require_once 'config.php';
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: auth.php");
+    header("Location: auth");
     exit();
 }
 
@@ -10,7 +10,6 @@ $user_id = $_SESSION['user_id'];
 $error = '';
 $success = '';
 
-// Fetch current user details
 $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -22,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $current_password = $_POST['current_password'];
         
         if (password_verify($current_password, $user['password_hash'])) {
-            // Check if email already exists
+            
             $check_email = $conn->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
             $check_email->bind_param("si", $new_email, $user_id);
             $check_email->execute();
@@ -34,9 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $update_email->execute();
                 
                 log_action($conn, $user_id, "Mengubah email dari " . $user['email'] . " menjadi " . $new_email);
-                $_SESSION['email'] = $new_email; // Update session if it holds email
+                $_SESSION['email'] = $new_email; 
                 $success = "Email berhasil diperbarui.";
-                // Refresh user details
+                
                 $user['email'] = $new_email;
             }
         } else {
@@ -58,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 
                 log_action($conn, $user_id, "Mengubah password.");
                 $success = "Password berhasil diperbarui.";
-                // Refresh hash in local variable
+                
                 $user['password_hash'] = $new_hash;
             } else {
                 $error = "Password saat ini salah. Perubahan password ditolak.";
@@ -101,52 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </head>
 
 <body class="bg-background text-on-surface flex flex-col min-h-screen pb-16 md:pb-0">
-    <!-- TopNavBar -->
-    <header class="w-full top-0 sticky z-50 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
-        <div class="flex justify-between items-center px-4 md:px-8 py-2 w-full max-w-[1280px] mx-auto h-16">
-            <div class="flex items-center gap-4">
-                <a href="index.php" class="text-xl font-bold text-secondary">MotoTrack Pro</a>
-            </div>
-            
-            <div class="flex items-center gap-2">
-                <!-- Desktop Only Links -->
-                <nav class="hidden md:flex items-center gap-2 mr-2 border-r border-outline-variant pr-4">
-                    <a href="index.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Home">
-                        <span class="material-symbols-outlined text-[24px]">home</span>
-                    </a>
-                    <a href="discover.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Discover">
-                        <span class="material-symbols-outlined text-[24px]">travel_explore</span>
-                    </a>
-                    <?php if (isset($_SESSION['user_id'])): ?>
-                        <a href="history.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="History">
-                            <span class="material-symbols-outlined text-[24px]">receipt_long</span>
-                        </a>
-                        <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'owner'): ?>
-                            <a href="admin.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Admin Panel">
-                                <span class="material-symbols-outlined text-[24px]">admin_panel_settings</span>
-                            </a>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                </nav>
-
-                <!-- Always visible Cart & Settings -->
-                <?php if (isset($_SESSION['user_id'])): ?>
-                    <?php include 'notifications_ui.php'; ?>
-                    <a href="cart.php" class="text-slate-600 hover:text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50 relative" title="Cart">
-                        <span class="material-symbols-outlined text-[24px]">shopping_cart</span>
-                        <?php if (isset($cart_count) && $cart_count > 0): ?>
-                            <span class="absolute top-0 right-0 bg-secondary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center border-2 border-white"><?= $cart_count ?></span>
-                        <?php endif; ?>
-                    </a>
-                    <a href="settings.php" class="text-secondary p-2 transition-colors flex items-center justify-center rounded-full hover:bg-slate-50" title="Settings">
-                        <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">settings</span>
-                    </a>
-                <?php else: ?>
-                    <a href="auth.php" class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-sm hover:bg-secondary transition-colors">Login</a>
-                <?php endif; ?>
-            </div>
-        </div>
-    </header>
+    <?php include 'header.php'; ?>
 
     <main class="w-full flex-grow max-w-3xl mx-auto px-8 py-12">
         <div class="mb-10">
@@ -169,7 +123,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
         <?php endif; ?>
 
-        <!-- Profile Section -->
         <div class="bg-white border border-slate-200 rounded-xl p-8 mb-8 shadow-sm">
             <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                 <span class="material-symbols-outlined text-slate-400">person</span>
@@ -206,13 +159,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-            <!-- Change Email -->
+            
             <div class="bg-white border border-slate-200 rounded-xl p-8 shadow-sm">
                 <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                     <span class="material-symbols-outlined text-slate-400">mail</span>
                     Change Email
                 </h3>
-                <form method="POST" action="settings.php" class="space-y-4">
+                <form method="POST" action="settings" class="space-y-4">
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">New Email Address</label>
                         <input type="email" name="new_email" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all">
@@ -227,13 +180,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </form>
             </div>
 
-            <!-- Change Password -->
             <div class="bg-white border border-slate-200 rounded-xl p-8 shadow-sm">
                 <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                     <span class="material-symbols-outlined text-slate-400">lock</span>
                     Change Password
                 </h3>
-                <form method="POST" action="settings.php" class="space-y-4">
+                <form method="POST" action="settings" class="space-y-4">
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">New Password</label>
                         <input type="password" name="new_password" required minlength="6" class="w-full border border-slate-300 rounded-lg p-2.5 focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all">
@@ -253,14 +205,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
         </div>
 
-        <!-- Danger Zone / Logout -->
         <div class="border-t border-slate-200 pt-8 mt-8 pb-12">
             <div class="bg-red-50 border border-red-200 rounded-xl p-6 flex justify-between items-center">
                 <div>
                     <h3 class="text-lg font-bold text-red-900">Logout</h3>
                     <p class="text-sm text-red-700 mt-1">Sesi Anda akan berakhir dan Anda harus masuk kembali.</p>
                 </div>
-                <a href="logout.php" class="bg-red-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-red-700 transition-colors shadow-lg shadow-red-200 flex items-center gap-2">
+                <a href="logout" class="bg-red-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-red-700 transition-colors shadow-lg shadow-red-200 flex items-center gap-2">
                     <span class="material-symbols-outlined text-[20px]">logout</span>
                     Logout Now
                 </a>
@@ -270,18 +221,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     <?php include 'footer.php'; ?>
 
-    <!-- Bottom Nav (Mobile) -->
     <nav class="md:hidden fixed bottom-0 left-0 right-0 w-full bg-white border-t border-slate-200 z-[999]" style="padding-bottom: env(safe-area-inset-bottom);">
         <div class="flex justify-around items-center h-16">
-            <a href="index.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="/" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">home</span>
                 <span class="text-[10px] font-bold mt-1">Home</span>
             </a>
-            <a href="discover.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="discover" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">travel_explore</span>
                 <span class="text-[10px] font-bold mt-1">Discover</span>
             </a>
-            <a href="history.php" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
+            <a href="history" class="flex flex-col items-center justify-center w-full h-full text-slate-500 hover:text-secondary transition-colors">
                 <span class="material-symbols-outlined text-[24px]">receipt_long</span>
                 <span class="text-[10px] font-bold mt-1">History</span>
             </a>
