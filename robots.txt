@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin.php
+Disallow: /settings
+Disallow: /settings.php
+Disallow: /checkout
+Disallow: /checkout.php
+Disallow: /auth
+Disallow: /auth.php
+Disallow: /cart
+Disallow: /cart.php
+
+Sitemap: https://motoinfy.com/sitemap.xml
