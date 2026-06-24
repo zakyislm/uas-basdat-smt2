@@ -53,7 +53,9 @@ CREATE TABLE `motorcycles` (
   `engine_type_id` INT NULL,
   FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL,
   FOREIGN KEY (`color_id`) REFERENCES `colors` (`id`) ON DELETE SET NULL,
-  FOREIGN KEY (`engine_type_id`) REFERENCES `engine_types` (`id`) ON DELETE SET NULL
+  FOREIGN KEY (`engine_type_id`) REFERENCES `engine_types` (`id`) ON DELETE SET NULL,
+  KEY `idx_motorcycles_make` (`make`),
+  KEY `idx_motorcycles_price` (`price`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
@@ -67,7 +69,8 @@ CREATE TABLE `transactions` (
   `transaction_date` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `status` ENUM('pending','confirmed','cancelled') DEFAULT 'pending',
   FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`motorcycle_id`) REFERENCES `motorcycles` (`id`) ON DELETE CASCADE
+  FOREIGN KEY (`motorcycle_id`) REFERENCES `motorcycles` (`id`) ON DELETE CASCADE,
+  KEY `idx_transactions_date` (`transaction_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
@@ -170,7 +173,8 @@ CREATE TABLE `discounts` (
   `valid_until` DATETIME NOT NULL,
   `usage_limit` INT NOT NULL DEFAULT 10,
   `used_count` INT NOT NULL DEFAULT 0,
-  `is_active` TINYINT(1) DEFAULT 1
+  `is_active` TINYINT(1) DEFAULT 1,
+  KEY `idx_discounts_code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
