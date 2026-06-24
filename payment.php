@@ -50,12 +50,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_payment'])) {
         $u_stmt = $conn->prepare("UPDATE transactions SET payment_status = 'pending_verification' WHERE id = ?");
         $u_stmt->bind_param("i", $trx_id);
         $u_stmt->execute();
-        if ($trx['type'] === 'booking' && $dp_verified) {
-            $notif_msg = "Settlement confirmation: #TX-$trx_id || Konfirmasi pelunasan: #TX-$trx_id";
-            $_SESSION['flash_message'] = __('Settlement confirmation sent. Awaiting admin verification.', 'Konfirmasi pelunasan berhasil dikirim. Menunggu verifikasi admin.');
+        if (intval($trx['payment_method_id']) === 2 && ($trx['type'] === 'buy' || ($trx['type'] === 'booking' && $dp_verified))) {
+            $notif_msg = "Leasing application: #TX-$trx_id || Pengajuan kredit leasing: #TX-$trx_id";
+            $_SESSION['flash_message'] = __('Leasing application submitted. Our team will contact you shortly.', 'Pengajuan kredit leasing berhasil dikirim. Tim kami akan segera menghubungi Anda.');
         } else {
-            $notif_msg = "Payment confirmation: #TX-$trx_id || Konfirmasi pembayaran: #TX-$trx_id";
-            $_SESSION['flash_message'] = __('Payment confirmation sent. Awaiting admin verification.', 'Konfirmasi pembayaran berhasil dikirim. Menunggu verifikasi admin.');
+            if ($trx['type'] === 'booking' && $dp_verified) {
+                $notif_msg = "Settlement confirmation: #TX-$trx_id || Konfirmasi pelunasan: #TX-$trx_id";
+                $_SESSION['flash_message'] = __('Settlement confirmation sent. Awaiting admin verification.', 'Konfirmasi pelunasan berhasil dikirim. Menunggu verifikasi admin.');
+            } else {
+                $notif_msg = "Payment confirmation: #TX-$trx_id || Konfirmasi pembayaran: #TX-$trx_id";
+                $_SESSION['flash_message'] = __('Payment confirmation sent. Awaiting admin verification.', 'Konfirmasi pembayaran berhasil dikirim. Menunggu verifikasi admin.');
+            }
         }
         $conn->query("INSERT INTO notifications (target_role, message, link, icon, color, bg) VALUES ('admin', '$notif_msg', 'admin?page=transactions', 'payments', 'text-amber-500', 'bg-amber-100')");
     }
@@ -153,32 +158,48 @@ $cart_count = $c_res['total'] ? $c_res['total'] : 0;
                         <a href="history" class="inline-block bg-slate-900 text-white font-bold px-6 py-3 rounded-lg hover:bg-slate-800"><?= __('View History', 'Lihat Riwayat') ?></a>
                     </div>
                 <?php else: ?>
-                    <div class="mb-8">
-                        <p class="font-bold text-slate-900 mb-4">Pay to one of the accounts below:</p>
-                        <div class="grid gap-4">
-                            <div class="border border-outline-variant rounded-lg p-4 flex items-center justify-between">
-                                <div>
-                                    <p class="font-bold text-slate-900">BCA - PT MotoInfy</p>
-                                    <p class="font-mono text-slate-500 text-lg">123-456-7890</p>
+                    <?php if (intval($trx['payment_method_id']) === 2 && ($trx['type'] === 'buy' || ($trx['type'] === 'booking' && $dp_verified))): ?>
+                        <div class="mb-8 text-center space-y-4">
+                            <span class="material-symbols-outlined text-6xl text-secondary mb-2 block animate-bounce">assignment</span>
+                            <h3 class="text-xl font-bold text-slate-900"><?= __('Leasing Document Verification', 'Verifikasi Dokumen Kredit Leasing') ?></h3>
+                            <p class="text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
+                                <?= __('Your transaction is processed via Kredit Leasing. Our team will contact you to collect the required documents (ID, Family Card, Payslip) and perform a credit survey.', 'Transaksi Anda diproses menggunakan Kredit Leasing. Tim kami akan menghubungi Anda untuk melengkapi berkas persyaratan kredit (KTP, KK, Slip Gaji) dan survei lapangan.') ?>
+                            </p>
+                        </div>
+                        <form method="POST" action="payment?id=<?= $trx_id ?>" class="mt-8 pt-6 border-t border-slate-100 text-center">
+                            <button type="submit" name="confirm_payment" class="w-full sm:w-auto inline-flex justify-center items-center gap-2 bg-secondary text-white font-bold px-8 py-4 rounded-xl hover:bg-secondary-container hover:shadow-lg transition-all text-lg">
+                                <?= __('Confirm Leasing Application', 'Konfirmasi Pengajuan Kredit') ?>
+                                <span class="material-symbols-outlined">arrow_forward</span>
+                            </button>
+                        </form>
+                    <?php else: ?>
+                        <div class="mb-8">
+                            <p class="font-bold text-slate-900 mb-4"><?= __('Pay to one of the accounts below:', 'Bayar ke salah satu rekening di bawah ini:') ?></p>
+                            <div class="grid gap-4">
+                                <div class="border border-outline-variant rounded-lg p-4 flex items-center justify-between">
+                                    <div>
+                                        <p class="font-bold text-slate-900">BCA - PT MotoInfy</p>
+                                        <p class="font-mono text-slate-500 text-lg">123-456-7890</p>
+                                    </div>
+                                    <span class="material-symbols-outlined text-slate-300 text-3xl">account_balance</span>
                                 </div>
-                                <span class="material-symbols-outlined text-slate-300 text-3xl">account_balance</span>
-                            </div>
-                            <div class="border border-outline-variant rounded-lg p-4 flex items-center justify-between">
-                                <div>
-                                    <p class="font-bold text-slate-900">Mandiri - PT MotoInfy</p>
-                                    <p class="font-mono text-slate-500 text-lg">098-765-4321</p>
+                                <div class="border border-outline-variant rounded-lg p-4 flex items-center justify-between">
+                                    <div>
+                                        <p class="font-bold text-slate-900">Mandiri - PT MotoInfy</p>
+                                        <p class="font-mono text-slate-500 text-lg">098-765-4321</p>
+                                    </div>
+                                    <span class="material-symbols-outlined text-slate-300 text-3xl">account_balance</span>
                                 </div>
-                                <span class="material-symbols-outlined text-slate-300 text-3xl">account_balance</span>
                             </div>
                         </div>
-                    </div>
-                    <form method="POST" action="payment?id=<?= $trx_id ?>" class="mt-8 pt-6 border-t border-slate-100 text-center">
-                        <p class="text-sm text-slate-500 mb-4"><?= __('Make sure the transfer amount matches up to the last digit.', 'Pastikan nominal transfer sesuai hingga digit terakhir.') ?></p>
-                        <button type="submit" name="confirm_payment" class="w-full sm:w-auto inline-flex justify-center items-center gap-2 bg-secondary text-white font-bold px-8 py-4 rounded-xl hover:bg-secondary-container hover:shadow-lg transition-all text-lg">
-                            <?= __('I Have Transferred', 'Saya Sudah Transfer') ?>
-                            <span class="material-symbols-outlined">arrow_forward</span>
-                        </button>
-                    </form>
+                        <form method="POST" action="payment?id=<?= $trx_id ?>" class="mt-8 pt-6 border-t border-slate-100 text-center">
+                            <p class="text-sm text-slate-500 mb-4"><?= __('Make sure the transfer amount matches up to the last digit.', 'Pastikan nominal transfer sesuai hingga digit terakhir.') ?></p>
+                            <button type="submit" name="confirm_payment" class="w-full sm:w-auto inline-flex justify-center items-center gap-2 bg-secondary text-white font-bold px-8 py-4 rounded-xl hover:bg-secondary-container hover:shadow-lg transition-all text-lg">
+                                <?= __('I Have Transferred', 'Saya Sudah Transfer') ?>
+                                <span class="material-symbols-outlined">arrow_forward</span>
+                            </button>
+                        </form>
+                     <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>

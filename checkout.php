@@ -196,13 +196,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
         
         $conn->begin_transaction();
         try {
-            $t_stmt = $conn->prepare("INSERT INTO transactions (user_id, motorcycle_id, quantity, type, payment_status, status) VALUES (?, ?, ?, ?, 'unpaid', 'pending')");
+            $t_stmt = $conn->prepare("INSERT INTO transactions (user_id, motorcycle_id, quantity, type, payment_method_id, payment_status, status) VALUES (?, ?, ?, ?, ?, 'unpaid', 'pending')");
             $u_stmt = $conn->prepare("UPDATE motorcycles SET stock = stock - ? WHERE id = ?");
             $c_stmt = $conn->prepare("DELETE FROM carts WHERE id = ? AND user_id = ?");
             
             $items_count = 0;
             foreach ($cart_data as $item) {
-                $t_stmt->bind_param("iiis", $user_id, $item['motor_id'], $item['quantity'], $type);
+                $t_stmt->bind_param("iiiis", $user_id, $item['motor_id'], $item['quantity'], $type, $payment_id);
                 $t_stmt->execute();
                 $trx_id = $conn->insert_id;
                 

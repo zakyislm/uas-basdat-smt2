@@ -68,8 +68,10 @@ CREATE TABLE `transactions` (
   `payment_status` ENUM('unpaid','pending_verification','paid','refunded') DEFAULT 'unpaid',
   `transaction_date` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `status` ENUM('pending','confirmed','cancelled') DEFAULT 'pending',
+  `payment_method_id` INT NULL,
   FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   FOREIGN KEY (`motorcycle_id`) REFERENCES `motorcycles` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`payment_method_id`) REFERENCES `payment_methods` (`id`) ON DELETE SET NULL,
   KEY `idx_transactions_date` (`transaction_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

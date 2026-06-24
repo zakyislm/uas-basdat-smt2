@@ -151,8 +151,7 @@ INSERT IGNORE INTO `engine_types` (`id`, `type_name`, `description`) VALUES
 
 INSERT IGNORE INTO `payment_methods` (`id`, `method_name`) VALUES 
 (1, 'Transfer Bank (Manual Verification)'), 
-(2, 'Kredit Leasing'),
-(3, 'Tunai Keras (Cash Outright)');
+(2, 'Kredit Leasing');
 
 INSERT IGNORE INTO `provinces` (`id`, `name`) VALUES 
 (1, 'DKI Jakarta'), 
