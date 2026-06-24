@@ -168,20 +168,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
         $tax_pct = isset($tax_rates[$prov_id]) ? $tax_rates[$prov_id] : 0;
         
         
-        $calc_stmt = $conn->prepare("SELECT calculate_final_price(?, ?, ?) AS final_total");
-        if ($calc_stmt) {
-            $calc_stmt->bind_param("dii", $subtotal, $coupon_discount, $tax_pct);
-            $calc_stmt->execute();
-            $calc_res = $calc_stmt->get_result();
-            if ($calc_res && $row = $calc_res->fetch_assoc()) {
-                $final_computed_total = floatval($row['final_total']) + $ship_cost;
+        try {
+            $calc_stmt = $conn->prepare("SELECT calculate_final_price(?, ?, ?) AS final_total");
+            if ($calc_stmt) {
+                $calc_stmt->bind_param("dii", $subtotal, $coupon_discount, $tax_pct);
+                $calc_stmt->execute();
+                $calc_res = $calc_stmt->get_result();
+                if ($calc_res && $row = $calc_res->fetch_assoc()) {
+                    $final_computed_total = floatval($row['final_total']) + $ship_cost;
+                } else {
+                    $discount_amount = $subtotal * ($coupon_discount / 100);
+                    $tax_amount = ($subtotal - $discount_amount) * ($tax_pct / 100);
+                    $final_computed_total = ($subtotal - $discount_amount + $tax_amount) + $ship_cost;
+                }
+                $calc_stmt->close();
             } else {
                 $discount_amount = $subtotal * ($coupon_discount / 100);
                 $tax_amount = ($subtotal - $discount_amount) * ($tax_pct / 100);
                 $final_computed_total = ($subtotal - $discount_amount + $tax_amount) + $ship_cost;
             }
-            $calc_stmt->close();
-        } else {
+        } catch (Exception $e) {
             $discount_amount = $subtotal * ($coupon_discount / 100);
             $tax_amount = ($subtotal - $discount_amount) * ($tax_pct / 100);
             $final_computed_total = ($subtotal - $discount_amount + $tax_amount) + $ship_cost;

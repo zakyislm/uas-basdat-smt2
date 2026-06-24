@@ -37,16 +37,19 @@ if (file_exists($envFile)) {
     $password = '';
     $dbname = 'dealer_db';
 }
-$conn = new mysqli($host, $user, $password, $dbname);
-if ($conn->connect_error) {
-    die(__("Database Connection Failed: ", "Koneksi Database Gagal: ") . $conn->connect_error);
+try {
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+    $conn = new mysqli($host, $user, $password, $dbname);
+} catch (Exception $e) {
+    die(__("Database Connection Failed: ", "Koneksi Database Gagal: ") . $e->getMessage());
 }
-$conn->query("DELETE FROM users WHERE is_verified = 0 AND created_at < NOW() - INTERVAL 3 DAY");
+
 function log_action($conn, $user_id, $action_detail) {
     $stmt = $conn->prepare("INSERT INTO logs (user_id, action_detail) VALUES (?, ?)");
     $stmt->bind_param("is", $user_id, $action_detail);
     $stmt->execute();
 }
+
 function is_booking_dp_verified($conn, $trx_id) {
     $stmt = $conn->prepare("SELECT COUNT(*) as count FROM logs WHERE action_detail LIKE ?");
     $log_search = "%transaction ID " . intval($trx_id) . " status to: pending, payment: paid%";
@@ -56,39 +59,39 @@ function is_booking_dp_verified($conn, $trx_id) {
     return $res['count'] > 0;
 }
 
+try {
+    $conn->query("DELETE FROM users WHERE is_verified = 0 AND created_at < NOW() - INTERVAL 3 DAY");
 
-$expired_bookings = $conn->query("
-    SELECT t.id, t.user_id, t.motorcycle_id, t.quantity, u.username, m.make, m.model 
-    FROM transactions t
-    JOIN users u ON t.user_id = u.id
-    JOIN motorcycles m ON t.motorcycle_id = m.id
-    WHERE t.type = 'booking' 
-      AND t.payment_status = 'paid' 
-      AND t.status = 'pending' 
-      AND t.transaction_date < NOW() - INTERVAL 6 MONTH
-");
+    $expired_bookings = $conn->query("
+        SELECT t.id, t.user_id, t.motorcycle_id, t.quantity, u.username, m.make, m.model 
+        FROM transactions t
+        JOIN users u ON t.user_id = u.id
+        JOIN motorcycles m ON t.motorcycle_id = m.id
+        WHERE t.type = 'booking' 
+          AND t.payment_status = 'paid' 
+          AND t.status = 'pending' 
+          AND t.transaction_date < NOW() - INTERVAL 6 MONTH
+    ");
 
-if ($expired_bookings && $expired_bookings->num_rows > 0) {
-    while ($trx = $expired_bookings->fetch_assoc()) {
-        $trx_id = $trx['id'];
-        $user_id = $trx['user_id'];
-        $motor_id = $trx['motorcycle_id'];
-        $qty = $trx['quantity'];
-        $motor_name = $trx['make'] . ' ' . $trx['model'];
-        
-        
-        $conn->query("UPDATE transactions SET status = 'cancelled', payment_status = 'refunded' WHERE id = $trx_id");
-        
-        
-        $conn->query("UPDATE motorcycles SET stock = stock + $qty WHERE id = $motor_id");
-        
-        
-        log_action($conn, $user_id, "System cancelled booking transaction ID $trx_id for exceeding 6-month deadline. DP refunded. || Sistem membatalkan transaksi booking ID $trx_id karena melebihi tenggat waktu 6 bulan. Uang DP direfund.");
-        
-        
-        $notif_msg = "Your booking for $motor_name (ID #TX-$trx_id) has been cancelled because it was not settled within 6 months. Your DP has been refunded. || Booking Anda untuk $motor_name (ID #TX-$trx_id) telah dibatalkan karena tidak dilunasi dalam 6 bulan. Uang DP telah direfund.";
-        $conn->query("INSERT INTO notifications (user_id, message, link, icon, color, bg) VALUES ($user_id, '$notif_msg', 'history', 'cancel', 'text-red-500', 'bg-red-100')");
+    if ($expired_bookings && $expired_bookings->num_rows > 0) {
+        while ($trx = $expired_bookings->fetch_assoc()) {
+            $trx_id = $trx['id'];
+            $user_id = $trx['user_id'];
+            $motor_id = $trx['motorcycle_id'];
+            $qty = $trx['quantity'];
+            $motor_name = $trx['make'] . ' ' . $trx['model'];
+            
+            $conn->query("UPDATE transactions SET status = 'cancelled', payment_status = 'refunded' WHERE id = $trx_id");
+            $conn->query("UPDATE motorcycles SET stock = stock + $qty WHERE id = $motor_id");
+            
+            log_action($conn, $user_id, "System cancelled booking transaction ID $trx_id for exceeding 6-month deadline. DP refunded. || Sistem membatalkan transaksi booking ID $trx_id karena melebihi tenggat waktu 6 bulan. Uang DP direfund.");
+            
+            $notif_msg = "Your booking for $motor_name (ID #TX-$trx_id) has been cancelled because it was not settled within 6 months. Your DP has been refunded. || Booking Anda untuk $motor_name (ID #TX-$trx_id) telah dibatalkan karena tidak dilunasi dalam 6 bulan. Uang DP telah direfund.";
+            $conn->query("INSERT INTO notifications (user_id, message, link, icon, color, bg) VALUES ($user_id, '$notif_msg', 'history', 'cancel', 'text-red-500', 'bg-red-100')");
+        }
     }
+} catch (Exception $e) {
+    die(__("Database Initialization Error: ", "Error Inisialisasi Database: ") . $e->getMessage() . "<br><br>" . __("Please ensure that you have imported the SQL schema (ddl.sql and dml.sql) to your database.", "Pastikan Anda telah mengimpor skema SQL (ddl.sql dan dml.sql) ke database Anda."));
 }
 
 $notifications = [];

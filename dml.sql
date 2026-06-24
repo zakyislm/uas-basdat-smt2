@@ -5,7 +5,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 
 INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `is_verified`, `role`) VALUES 
-
+(1, 'zaky', 'zakislam238@gmail.com', '$2y$10$YSewRit9iZrQCSg6Ciz71ualV5gFV8c7bqR32phe15AmCN/tkYg3.', 1, 'owner'),
 (2, 'Joko (User)', 'user@gmail.com', '$2y$10$eTRsaGXo7UfTXmImDfGMSed92bRieteYTkUx91z6ndxsiOCLqiYTm', 1, 'user'),
 (3, 'Budi (Admin)', 'admin@gmail.com', '$2y$10$eTRsaGXo7UfTXmImDfGMSed92bRieteYTkUx91z6ndxsiOCLqiYTm', 1, 'admin'),
 (4, 'Tono (Owner)', 'owner@gmail.com', '$2y$10$eTRsaGXo7UfTXmImDfGMSed92bRieteYTkUx91z6ndxsiOCLqiYTm', 1, 'owner');
@@ -189,5 +189,12 @@ INSERT IGNORE INTO `tax_rates` (`id`, `province_id`, `percentage`) VALUES
 INSERT INTO `notifications` (`id`, `user_id`, `target_role`, `message`, `link`, `icon`, `color`, `bg`, `is_read`) VALUES
 (2, NULL, 'admin', 'Pesanan baru: #TX-3', 'admin?page=transactions', 'receipt_long', 'text-blue-500', 'bg-blue-100', 0),
 (3, NULL, 'admin', 'Konfirmasi pembayaran: #TX-3', 'admin?page=transactions', 'payments', 'text-amber-500', 'bg-amber-100', 0);
+
+UPDATE `motorcycles` SET `category_id` = 1 WHERE `model` LIKE '%CBR%' OR `model` LIKE '%Ninja%' OR `model` LIKE '%ZX-%' OR `model` LIKE '%GSX%' OR `model` LIKE '%YZF%' OR `model` LIKE '%R15%' OR `model` LIKE '%R25%' OR `model` LIKE '%Monster%' OR `model` LIKE '%Panigale%' OR `model` LIKE '%S1000RR%';
+UPDATE `motorcycles` SET `category_id` = 2 WHERE `category_id` IS NULL;
+UPDATE `motorcycles` SET `engine_type_id` = 2 WHERE `model` LIKE '%250%' OR `model` LIKE '%300%' OR `model` LIKE '%400%' OR `model` LIKE '%Monster%' OR `model` LIKE '%Panigale%' OR `model` LIKE '%S1000RR%' OR `model` LIKE '%ZX-25R%' OR `model` LIKE '%ZX25R%';
+UPDATE `motorcycles` SET `engine_type_id` = 1 WHERE `engine_type_id` IS NULL;
+UPDATE `motorcycles` SET `color_id` = 1 WHERE `id` % 2 = 0;
+UPDATE `motorcycles` SET `color_id` = 2 WHERE `color_id` IS NULL;
 
 SET FOREIGN_KEY_CHECKS = 1;

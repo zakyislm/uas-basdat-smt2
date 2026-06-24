@@ -47,7 +47,13 @@ CREATE TABLE `motorcycles` (
   `stock` INT NOT NULL DEFAULT 0,
   `mileage` INT DEFAULT 0,
   `discount_percent` INT NOT NULL DEFAULT 0,
-  `discount_until` DATETIME NULL
+  `discount_until` DATETIME NULL,
+  `category_id` INT NULL,
+  `color_id` INT NULL,
+  `engine_type_id` INT NULL,
+  FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL,
+  FOREIGN KEY (`color_id`) REFERENCES `colors` (`id`) ON DELETE SET NULL,
+  FOREIGN KEY (`engine_type_id`) REFERENCES `engine_types` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
